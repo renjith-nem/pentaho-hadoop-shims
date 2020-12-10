@@ -171,20 +171,8 @@
       <version>${org.apache.hive.version}</version>
       <exclusions>
         <exclusion>
-          <groupId>org.eclipse.jetty</groupId>
-          <artifactId>jetty-runner</artifactId>
-        </exclusion>
-        <exclusion>
           <groupId>dnsjava</groupId>
           <artifactId>dnsjava</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.ow2.asm</groupId>
-          <artifactId>asm</artifactId>
-        </exclusion>
-        <exclusion>
-          <groupId>org.threeten</groupId>
-          <artifactId>threeten-extra</artifactId>
         </exclusion>
         <exclusion>
           <groupId>org.apache.calcite.avatica</groupId>
@@ -195,16 +183,6 @@
           <artifactId>log4j-api</artifactId>
         </exclusion>
       </exclusions>
-    </dependency>
-    <dependency>
-      <groupId>org.ow2.asm</groupId>
-      <artifactId>asm</artifactId>
-      <version>5.2</version>
-    </dependency>
-    <dependency>
-      <groupId>org.threeten</groupId>
-      <artifactId>threeten-extra</artifactId>
-      <version>1.2</version>
     </dependency>
     <dependency>
       <groupId>org.apache.calcite.avatica</groupId>
