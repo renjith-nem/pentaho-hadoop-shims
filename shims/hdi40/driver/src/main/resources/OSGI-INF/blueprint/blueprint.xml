@@ -30,7 +30,7 @@
 
   <service ref="hadoopFileSystem" interface="org.pentaho.hadoop.shim.api.hdfs.HadoopFileSystemFactory"/>
 
-  <bean id="hdi40FormatShim" class="org.pentaho.hadoop.shim.common.CommonFormatShim"/>
+  <bean id="hdi40FormatShim" class="org.pentaho.hadoop.shim.hdi.format.HDIFormatShim"/>
 
   <service ref="hdi40FormatShim" auto-export="interfaces">
     <service-properties>
