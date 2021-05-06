@@ -34,15 +34,13 @@ import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.apache.parquet.hadoop.ParquetRecordWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.pentaho.di.core.RowMetaAndData;
-import org.pentaho.di.core.util.StringUtil;
+import org.pentaho.hadoop.shim.HadoopShim;
 import org.pentaho.hadoop.shim.ShimConfigsLoader;
 import org.pentaho.hadoop.shim.api.cluster.NamedCluster;
 import org.pentaho.hadoop.shim.api.format.IParquetOutputField;
 import org.pentaho.hadoop.shim.api.format.IPentahoParquetOutputFormat;
-import org.pentaho.hadoop.shim.api.format.org.pentaho.hadoop.shim.pvfs.api.PvfsHadoopBridgeFileSystemExtension;
 import org.pentaho.hadoop.shim.common.ConfigurationProxy;
 import org.pentaho.hadoop.shim.common.format.HadoopFormatBase;
-import org.pentaho.hadoop.shim.common.format.S3NCredentialUtils;
 import org.pentaho.hadoop.shim.common.format.parquet.delegate.apache.PentahoParquetRecordWriter;
 import org.pentaho.hadoop.shim.common.format.parquet.delegate.apache.PentahoParquetWriteSupport;
 
@@ -64,6 +62,9 @@ public class HDIApacheOutputFormat extends HadoopFormatBase implements IPentahoP
   private Job job;
   private Path outputFile;
   private List<? extends IParquetOutputField> outputFields;
+  private HadoopShim shim;
+  private org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf;
+  private NamedCluster namedCluster;
 
   public HDIApacheOutputFormat() {
     this( null );
@@ -71,12 +72,13 @@ public class HDIApacheOutputFormat extends HadoopFormatBase implements IPentahoP
 
   public HDIApacheOutputFormat(NamedCluster namedCluster ) {
     logger.info( "We are initializing parquet output format" );
-
+    this.namedCluster = namedCluster;
     inClassloader( () -> {
       ConfigurationProxy conf = new ConfigurationProxy();
-
+      shim = new HadoopShim();
       if ( namedCluster != null ) {
         // if named cluster is not defined, no need to add cluster resource configs
+        pentahoConf = shim.createConfiguration(this.namedCluster);
         BiConsumer<InputStream, String> consumer = ( is, filename ) -> conf.addResource( is, filename );
         ShimConfigsLoader.addConfigsAsResources( namedCluster, consumer );
       }
@@ -96,10 +98,8 @@ public class HDIApacheOutputFormat extends HadoopFormatBase implements IPentahoP
   @Override
   public void setOutputFile( String file, boolean override ) throws Exception {
     inClassloader( () -> {
-      S3NCredentialUtils util = new S3NCredentialUtils();
-      util.applyS3CredentialsToHadoopConfigurationIfNecessary( file, job.getConfiguration() );
-      outputFile = new Path( S3NCredentialUtils.scrubFilePathIfNecessary( file ) );
-      FileSystem fs = FileSystem.get( outputFile.toUri(), job.getConfiguration() );
+      outputFile = new Path( file );
+      FileSystem fs = (FileSystem) shim.getFileSystem(pentahoConf).getDelegate();
       if ( fs.exists( outputFile ) ) {
         if ( override ) {
           fs.delete( outputFile, true );
@@ -204,21 +204,6 @@ public class HDIApacheOutputFormat extends HadoopFormatBase implements IPentahoP
   }
 
   public String generateAlias( String pvfsPath ) {
-//    return inClassloader( () -> {
-//        if ( pvfsPath.startsWith( "s3" ) ) {
-//          S3NCredentialUtils util = new S3NCredentialUtils();
-//          util.applyS3CredentialsToHadoopConfigurationIfNecessary( pvfsPath, job.getConfiguration() );
-//          return S3NCredentialUtils.scrubFilePathIfNecessary( pvfsPath );
-//        }
-//
-//        FileSystem fs = FileSystem.get( StringUtil.toUri( pvfsPath ), job.getConfiguration() );
-//        if ( fs instanceof PvfsHadoopBridgeFileSystemExtension ) {
-//          return ( (PvfsHadoopBridgeFileSystemExtension) fs ).generateAlias( pvfsPath );
-//        } else {
-//          return null;
-//        }
-//      }
-//    );
     return null;
   }
 

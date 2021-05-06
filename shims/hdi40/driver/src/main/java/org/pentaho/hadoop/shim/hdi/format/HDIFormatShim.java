@@ -30,7 +30,7 @@ public class HDIFormatShim extends CommonFormatShim {
         } else if ( type.isAssignableFrom( IPentahoOrcInputFormat.class ) ) {
             return (T) new HDIOrcInputFormat( namedCluster );
         }
-        throw new IllegalArgumentException( "Not supported scheme format" );
+        throw new IllegalArgumentException( "Not supported HDI scheme format" );
     }
 
     @Override
@@ -42,6 +42,6 @@ public class HDIFormatShim extends CommonFormatShim {
         } else if ( type.isAssignableFrom( IPentahoOrcOutputFormat.class ) ) {
             return (T) new HDIOrcOutputFormat( namedCluster );
         }
-        throw new IllegalArgumentException( "Not supported scheme format" );
+        throw new IllegalArgumentException( "Not supported HDI scheme format" );
     }
 }

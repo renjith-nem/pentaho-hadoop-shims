@@ -35,7 +35,6 @@ import org.pentaho.hadoop.shim.common.format.HadoopFormatBase;
 import org.pentaho.hadoop.shim.common.format.S3NCredentialUtils;
 import org.pentaho.hadoop.shim.common.format.orc.OrcMetaDataReader;
 import org.pentaho.hadoop.shim.common.format.orc.OrcSchemaConverter;
-import org.pentaho.hadoop.shim.common.format.orc.PentahoOrcRecordReader;
 
 import java.io.InputStream;
 import java.util.List;
@@ -74,14 +73,14 @@ public class HDIOrcInputFormat extends HadoopFormatBase implements IPentahoOrcIn
   public IPentahoRecordReader createRecordReader( IPentahoInputSplit split ) {
     requireNonNull( fileName, NOT_NULL_MSG );
     requireNonNull( inputFields, NOT_NULL_MSG );
-    return inClassloader( () -> new HDIOrcRecordReader( fileName, conf, inputFields ) );
+    return inClassloader( () -> new HDIOrcRecordReader( fileName, conf, inputFields, shim, pentahoConf ) );
   }
 
   @Override
   public List<IOrcInputField> readSchema() {
     return inClassloader( () -> readSchema(
             HDIOrcRecordReader.getReader(
-        requireNonNull( fileName, NOT_NULL_MSG ), conf ) ) );
+        requireNonNull( fileName, NOT_NULL_MSG ), conf, shim, pentahoConf) ) );
   }
 
   private List<IOrcInputField> readSchema( Reader orcReader ) {
@@ -109,7 +108,7 @@ public class HDIOrcInputFormat extends HadoopFormatBase implements IPentahoOrcIn
 
   @Override
   public void setInputFile( String fileName ) {
-    this.fileName = S3NCredentialUtils.scrubFilePathIfNecessary( fileName );
+    this.fileName = fileName;
   }
 
 

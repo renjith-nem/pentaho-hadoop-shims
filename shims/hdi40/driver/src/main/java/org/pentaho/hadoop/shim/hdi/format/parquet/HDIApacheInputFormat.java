@@ -39,6 +39,7 @@ import org.apache.parquet.schema.MessageType;
 import org.pentaho.di.core.RowMetaAndData;
 import org.pentaho.di.core.logging.LogChannel;
 import org.pentaho.di.core.logging.LogChannelInterface;
+import org.pentaho.hadoop.shim.HadoopShim;
 import org.pentaho.hadoop.shim.ShimConfigsLoader;
 import org.pentaho.hadoop.shim.api.cluster.NamedCluster;
 import org.pentaho.hadoop.shim.api.format.IParquetInputField;
@@ -74,17 +75,21 @@ public class HDIApacheInputFormat extends HadoopFormatBase implements IPentahoPa
 
   private ParquetInputFormat<RowMetaAndData> nativeParquetInputFormat;
   private Job job;
+  private HadoopShim shim;
+  private org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf;
+  private NamedCluster namedCluster;
 
   public HDIApacheInputFormat(NamedCluster namedCluster ) {
     logger.logBasic( "We are initializing parquet input format" );
-
+    this.namedCluster = namedCluster;
     inClassloader( () -> {
       ConfigurationProxy conf = new ConfigurationProxy();
-
-      if ( namedCluster != null ) {
+      shim = new HadoopShim();
+      if ( this.namedCluster != null ) {
+        pentahoConf = shim.createConfiguration(this.namedCluster);
         // if named cluster is not defined, no need to add cluster resource configs
         BiConsumer<InputStream, String> consumer = ( is, filename ) -> conf.addResource( is, filename );
-        ShimConfigsLoader.addConfigsAsResources( namedCluster, consumer );
+        ShimConfigsLoader.addConfigsAsResources( this.namedCluster, consumer );
       }
       job = Job.getInstance( conf );
 
@@ -102,10 +107,8 @@ public class HDIApacheInputFormat extends HadoopFormatBase implements IPentahoPa
 
   @Override public void setInputFile( String file ) throws Exception {
     inClassloader( () -> {
-      S3NCredentialUtils util = new S3NCredentialUtils();
-      util.applyS3CredentialsToHadoopConfigurationIfNecessary( file, job.getConfiguration() );
-      Path filePath = new Path( S3NCredentialUtils.scrubFilePathIfNecessary( file ) );
-      FileSystem fs = FileSystem.get( filePath.toUri(), job.getConfiguration() );
+      Path filePath = new Path(  file );
+      FileSystem fs = (FileSystem) shim.getFileSystem(pentahoConf).getDelegate();
       filePath = fs.makeQualified( filePath );
       if ( !fs.exists( filePath ) ) {
         throw new NoSuchFileException( file );
@@ -130,10 +133,8 @@ public class HDIApacheInputFormat extends HadoopFormatBase implements IPentahoPa
       String[] filePaths = new String[files.length];
       int i = 0;
       for ( String file : files ) {
-        S3NCredentialUtils util = new S3NCredentialUtils();
-        util.applyS3CredentialsToHadoopConfigurationIfNecessary( file, job.getConfiguration() );
-        Path filePath = new Path( S3NCredentialUtils.scrubFilePathIfNecessary( file ) );
-        FileSystem fs = FileSystem.get( filePath.toUri(), job.getConfiguration() );
+        Path filePath = new Path( file );
+        FileSystem fs = (FileSystem) shim.getFileSystem(pentahoConf).getDelegate();
         filePath = fs.makeQualified( filePath );
         if ( !fs.exists( filePath ) ) {
           throw new NoSuchFileException( file );
@@ -160,17 +161,9 @@ public class HDIApacheInputFormat extends HadoopFormatBase implements IPentahoPa
 
   @Override @SuppressWarnings( "squid:CommentedOutCodeLine" ) public void setSplitSize( long blockSize )
       throws Exception {
-    inClassloader( () ->
-        /**
-         * TODO Files splitting is temporary disabled. We need some UI checkbox for allow it, because some parquet files
-         * can't be splitted by errors in previous implementation or other things. Parquet reports source of problem
-         * only
-         * to logs, not to exception. See CorruptDeltaByteArrays.requiresSequentialReads().
-         *
-         * mapr510 and mapr520 doesn't support SPLIT_FILES property
-         */
-        // ParquetInputFormat.setMaxInputSplitSize( job, blockSize );
-        job.getConfiguration().setBoolean( ParquetInputFormat.SPLIT_FILES, false ) );
+    inClassloader( () -> {
+//      ParquetInputFormat.setMaxInputSplitSize( job, blockSize );
+      job.getConfiguration().setBoolean( ParquetInputFormat.SPLIT_FILES, false );});
   }
 
   @Override public List<IPentahoInputSplit> getSplits() {
@@ -201,10 +194,8 @@ public class HDIApacheInputFormat extends HadoopFormatBase implements IPentahoPa
   @Override public List<IParquetInputField> readSchema( String file ) throws Exception {
     return inClassloader( () -> {
       Configuration conf = job.getConfiguration();
-      S3NCredentialUtils util = new S3NCredentialUtils();
-      util.applyS3CredentialsToHadoopConfigurationIfNecessary( file, conf );
-      Path filePath = new Path( S3NCredentialUtils.scrubFilePathIfNecessary( file ) );
-      FileSystem fs = FileSystem.get( filePath.toUri(), conf );
+      Path filePath = new Path( file );
+      FileSystem fs = (FileSystem) shim.getFileSystem(pentahoConf).getDelegate();
       FileStatus fileStatus = fs.getFileStatus( filePath );
       List<Footer> footers = ParquetFileReader.readFooters( conf, fileStatus, true );
       if ( footers.isEmpty() ) {

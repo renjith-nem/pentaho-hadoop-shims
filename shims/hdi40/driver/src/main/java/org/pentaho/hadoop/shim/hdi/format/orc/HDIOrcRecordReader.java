@@ -34,6 +34,8 @@ import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
 import org.apache.orc.TypeDescription;
 import org.pentaho.di.core.RowMetaAndData;
+import org.pentaho.hadoop.shim.HadoopShim;
+import org.pentaho.hadoop.shim.api.cluster.NamedCluster;
 import org.pentaho.hadoop.shim.api.format.IOrcInputField;
 import org.pentaho.hadoop.shim.api.format.IOrcMetaData;
 import org.pentaho.hadoop.shim.api.format.IPentahoInputFormat;
@@ -49,9 +51,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Created by tkafalas on 11/7/2017.
- */
 public class HDIOrcRecordReader implements IPentahoInputFormat.IPentahoRecordReader {
   private static final Logger logger = Logger.getLogger( HDIOrcRecordReader.class );
   private final List<? extends IOrcInputField> dialogInputFields;  //Comes from Dialog
@@ -62,12 +61,14 @@ public class HDIOrcRecordReader implements IPentahoInputFormat.IPentahoRecordRea
   private TypeDescription typeDescription;
   private Map<String, Integer> schemaToOrcSubcripts;
   private OrcConverter orcConverter = new OrcConverter();
+  private HadoopShim shim;
 
   HDIOrcRecordReader(String fileName, Configuration conf,
-                     List<? extends IOrcInputField> dialogInputFields ) {
+                     List<? extends IOrcInputField> dialogInputFields, HadoopShim shim,
+                     org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf) {
     this.dialogInputFields = dialogInputFields;
-
-    Reader reader = getReader( fileName, conf );
+    this.shim = shim;
+    Reader reader = getReader( fileName, conf, shim, pentahoConf );
     try {
       recordReader = reader.rows();
     } catch ( IOException e ) {
@@ -109,13 +110,13 @@ public class HDIOrcRecordReader implements IPentahoInputFormat.IPentahoRecordRea
     }
   }
 
-  static Reader getReader( String fileName, Configuration conf ) {
+  static Reader getReader(String fileName, Configuration conf, HadoopShim shim,
+                          org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf) {
 
     try {
-      S3NCredentialUtils util = new S3NCredentialUtils();
-      util.applyS3CredentialsToHadoopConfigurationIfNecessary( fileName, conf );
-      Path filePath = new Path( S3NCredentialUtils.scrubFilePathIfNecessary( fileName ) );
-      FileSystem fs = FileSystem.get( filePath.toUri(), conf );
+
+      Path filePath = new Path( fileName);
+      FileSystem fs = (FileSystem) shim.getFileSystem(pentahoConf).getDelegate();
       if ( !fs.exists( filePath ) ) {
         throw new NoSuchFileException( fileName );
       }
@@ -130,7 +131,7 @@ public class HDIOrcRecordReader implements IPentahoInputFormat.IPentahoRecordRea
       }
       return OrcFile.createReader( filePath,
         OrcFile.readerOptions( conf ).filesystem( fs ) );
-    } catch ( IOException e ) {
+    } catch (IOException e ) {
       throw new IllegalArgumentException( "Unable to read data from file " + fileName, e );
     }
   }
