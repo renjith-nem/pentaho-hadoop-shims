@@ -107,7 +107,9 @@ public class HDIApacheOutputFormat extends HadoopFormatBase implements IPentahoP
           throw new FileAlreadyExistsException( file );
         }
       }
-      setOutputPath( job, outputFile.getParent() );
+      this.outputFile = new Path(fs.getUri().toString() + this.outputFile.toUri().getPath());
+      this.outputFile = fs.makeQualified(this.outputFile);
+      this.job.getConfiguration().set("mapreduce.output.fileoutputformat.outputdir", this.outputFile.toString());
     } );
   }
 

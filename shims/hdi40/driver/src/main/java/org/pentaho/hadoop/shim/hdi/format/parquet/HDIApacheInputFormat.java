@@ -108,8 +108,9 @@ public class HDIApacheInputFormat extends HadoopFormatBase implements IPentahoPa
   @Override public void setInputFile( String file ) throws Exception {
     inClassloader( () -> {
       Path filePath = new Path(  file );
-      FileSystem fs = (FileSystem) shim.getFileSystem(pentahoConf).getDelegate();
-      filePath = fs.makeQualified( filePath );
+      FileSystem fs = (FileSystem)this.shim.getFileSystem(this.pentahoConf).getDelegate();
+      filePath = new Path(fs.getUri().toString() + filePath.toUri().getPath());
+      filePath = fs.makeQualified(filePath);
       if ( !fs.exists( filePath ) ) {
         throw new NoSuchFileException( file );
       }
@@ -195,7 +196,9 @@ public class HDIApacheInputFormat extends HadoopFormatBase implements IPentahoPa
     return inClassloader( () -> {
       Configuration conf = job.getConfiguration();
       Path filePath = new Path( file );
-      FileSystem fs = (FileSystem) shim.getFileSystem(pentahoConf).getDelegate();
+      FileSystem fs = (FileSystem)this.shim.getFileSystem(this.pentahoConf).getDelegate();
+      filePath = new Path(fs.getUri().toString() + filePath.toUri().getPath());
+      filePath = fs.makeQualified(filePath);
       FileStatus fileStatus = fs.getFileStatus( filePath );
       List<Footer> footers = ParquetFileReader.readFooters( conf, fileStatus, true );
       if ( footers.isEmpty() ) {
