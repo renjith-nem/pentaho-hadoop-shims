@@ -50,17 +50,17 @@ import java.util.Map;
  * Created by tkafalas on 11/7/2017.
  */
 public class PentahoOrcRecordReader implements IPentahoInputFormat.IPentahoRecordReader {
-  private static final Logger logger = Logger.getLogger( PentahoOrcRecordReader.class );
-  private final List<? extends IOrcInputField> dialogInputFields;  //Comes from Dialog
-  private final List<? extends IOrcInputField> orcInputFields;  //Comes from OrcFile combined with custom metadata
-  private VectorizedRowBatch batch;
-  private RecordReader recordReader;
-  private int currentBatchRow;
-  private TypeDescription typeDescription;
-  private Map<String, Integer> schemaToOrcSubcripts;
-  private OrcConverter orcConverter = new OrcConverter();
+  protected static Logger logger = Logger.getLogger( PentahoOrcRecordReader.class );
+  protected List<? extends IOrcInputField> dialogInputFields;  //Comes from Dialog
+  protected List<? extends IOrcInputField> orcInputFields;  //Comes from OrcFile combined with custom metadata
+  protected VectorizedRowBatch batch;
+  protected RecordReader recordReader;
+  protected int currentBatchRow;
+  protected TypeDescription typeDescription;
+  protected Map<String, Integer> schemaToOrcSubcripts;
+  protected OrcConverter orcConverter = new OrcConverter();
 
-  PentahoOrcRecordReader( String fileName, Configuration conf,
+  protected PentahoOrcRecordReader( String fileName, Configuration conf,
                           List<? extends IOrcInputField> dialogInputFields ) {
     this.dialogInputFields = dialogInputFields;
 
@@ -133,7 +133,7 @@ public class PentahoOrcRecordReader implements IPentahoInputFormat.IPentahoRecor
   }
 
 
-  private boolean setNextBatch() throws IOException {
+  protected boolean setNextBatch() throws IOException {
     currentBatchRow = 0;
     return recordReader.nextBatch( batch );
   }

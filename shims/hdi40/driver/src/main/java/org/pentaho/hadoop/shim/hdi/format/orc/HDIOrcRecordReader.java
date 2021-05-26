@@ -26,45 +26,29 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.PathFilter;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
-import org.apache.log4j.Logger;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
-import org.apache.orc.RecordReader;
-import org.apache.orc.TypeDescription;
-import org.pentaho.di.core.RowMetaAndData;
 import org.pentaho.hadoop.shim.HadoopShim;
 import org.pentaho.hadoop.shim.api.format.IOrcInputField;
 import org.pentaho.hadoop.shim.api.format.IOrcMetaData;
-import org.pentaho.hadoop.shim.api.format.IPentahoInputFormat;
-import org.pentaho.hadoop.shim.common.format.orc.OrcConverter;
 import org.pentaho.hadoop.shim.common.format.orc.OrcMetaDataReader;
 import org.pentaho.hadoop.shim.common.format.orc.OrcSchemaConverter;
+import org.pentaho.hadoop.shim.common.format.orc.PentahoOrcRecordReader;
 
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
-public class HDIOrcRecordReader implements IPentahoInputFormat.IPentahoRecordReader {
-  private static final Logger logger = Logger.getLogger( HDIOrcRecordReader.class );
-  private final List<? extends IOrcInputField> dialogInputFields;  //Comes from Dialog
-  private final List<? extends IOrcInputField> orcInputFields;  //Comes from OrcFile combined with custom metadata
-  private final VectorizedRowBatch batch;
-  private final RecordReader recordReader;
-  private final TypeDescription typeDescription;
-  private final Map<String, Integer> schemaToOrcSubcripts;
-  private final OrcConverter orcConverter = new OrcConverter();
-  private final HadoopShim shim;
-  private int currentBatchRow;
+public class HDIOrcRecordReader extends PentahoOrcRecordReader {
 
   HDIOrcRecordReader( String fileName, Configuration conf,
                       List<? extends IOrcInputField> dialogInputFields, HadoopShim shim,
                       org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf ) {
+    super( fileName,  conf, dialogInputFields);
+
     this.dialogInputFields = dialogInputFields;
-    this.shim = shim;
     Reader reader = getReader( fileName, conf, shim, pentahoConf );
     try {
       recordReader = reader.rows();
@@ -131,48 +115,6 @@ public class HDIOrcRecordReader implements IPentahoInputFormat.IPentahoRecordRea
     } catch ( IOException e ) {
       throw new IllegalArgumentException( "Unable to read data from file " + fileName, e );
     }
-  }
-
-
-  private boolean setNextBatch() throws IOException {
-    currentBatchRow = 0;
-    return recordReader.nextBatch( batch );
-  }
-
-  @Override
-  public void close() throws IOException {
-    recordReader.close();
-  }
-
-
-  @Override
-  public Iterator<RowMetaAndData> iterator() {
-    return new Iterator<RowMetaAndData>() {
-
-      @Override
-      public boolean hasNext() {
-        if ( currentBatchRow < batch.size ) {
-          return true;
-        }
-        try {
-          return setNextBatch();
-        } catch ( IOException e ) {
-          logger.error( e.getMessage(), e );
-          return false;
-        }
-      }
-
-      @SuppressWarnings( "squid:S2272" )
-      @Override
-      public RowMetaAndData next() {
-        RowMetaAndData rowMeta =
-                orcConverter.convertFromOrc( batch, currentBatchRow, dialogInputFields, typeDescription,
-                        schemaToOrcSubcripts,
-                        orcInputFields );
-        currentBatchRow++;
-        return rowMeta;
-      }
-    };
   }
 
 }

@@ -34,6 +34,7 @@ import org.pentaho.hadoop.shim.common.ConfigurationProxy;
 import org.pentaho.hadoop.shim.common.format.HadoopFormatBase;
 import org.pentaho.hadoop.shim.common.format.orc.OrcMetaDataReader;
 import org.pentaho.hadoop.shim.common.format.orc.OrcSchemaConverter;
+import org.pentaho.hadoop.shim.common.format.orc.PentahoOrcInputFormat;
 
 import java.io.InputStream;
 import java.util.List;
@@ -41,15 +42,15 @@ import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
-public class HDIOrcInputFormat extends HadoopFormatBase implements IPentahoOrcInputFormat {
+public class HDIOrcInputFormat extends PentahoOrcInputFormat {
   private static final String NOT_NULL_MSG = "filename and inputfields must not be null";
   private final Configuration conf;
   private final org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf;
   private String fileName;
-  private List<? extends IOrcInputField> inputFields;
-  private HadoopShim shim;
+  private final HadoopShim shim;
 
   public HDIOrcInputFormat( NamedCluster namedCluster ) {
+    super(namedCluster);
     shim = new HadoopShim();
     pentahoConf = shim.createConfiguration( namedCluster );
 
@@ -78,29 +79,6 @@ public class HDIOrcInputFormat extends HadoopFormatBase implements IPentahoOrcIn
     return inClassloader( () -> readSchema(
             HDIOrcRecordReader.getReader(
                     requireNonNull( fileName, NOT_NULL_MSG ), conf, shim, pentahoConf ) ) );
-  }
-
-  private List<IOrcInputField> readSchema( Reader orcReader ) {
-    OrcSchemaConverter orcSchemaConverter = new OrcSchemaConverter();
-    List<IOrcInputField> orcInputFields = orcSchemaConverter.buildInputFields( readTypeDescription( orcReader ) );
-    IOrcMetaData.Reader orcMetaDataReader = new OrcMetaDataReader( orcReader );
-    orcMetaDataReader.read( orcInputFields );
-    return orcInputFields;
-  }
-
-  private TypeDescription readTypeDescription( Reader orcReader ) {
-    return orcReader.getSchema();
-  }
-
-  /**
-   * Set schema from user's metadata
-   * <p>
-   * This schema will be used instead of schema from {@link #fileName} since we allow user to override pentaho filed
-   * name
-   */
-  @Override
-  public void setSchema( List<IOrcInputField> inputFields ) {
-    this.inputFields = inputFields;
   }
 
   @Override

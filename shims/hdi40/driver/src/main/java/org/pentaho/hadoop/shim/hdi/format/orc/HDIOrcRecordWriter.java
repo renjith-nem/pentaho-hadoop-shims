@@ -31,23 +31,17 @@ import org.apache.hadoop.hive.ql.exec.vector.DecimalColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.DoubleColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.LongColumnVector;
 import org.apache.hadoop.hive.ql.exec.vector.TimestampColumnVector;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
-import org.apache.log4j.Logger;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
-import org.apache.orc.Writer;
 import org.pentaho.di.core.RowMetaAndData;
 import org.pentaho.di.core.exception.KettleValueException;
-import org.pentaho.di.core.plugins.IValueMetaConverter;
-import org.pentaho.di.core.row.RowMeta;
 import org.pentaho.di.core.row.ValueMetaInterface;
 import org.pentaho.di.core.row.value.ValueMetaBase;
 import org.pentaho.di.core.row.value.ValueMetaBigNumber;
 import org.pentaho.di.core.row.value.ValueMetaBinary;
 import org.pentaho.di.core.row.value.ValueMetaBoolean;
 import org.pentaho.di.core.row.value.ValueMetaConversionException;
-import org.pentaho.di.core.row.value.ValueMetaConverter;
 import org.pentaho.di.core.row.value.ValueMetaDate;
 import org.pentaho.di.core.row.value.ValueMetaInteger;
 import org.pentaho.di.core.row.value.ValueMetaInternetAddress;
@@ -55,8 +49,8 @@ import org.pentaho.di.core.row.value.ValueMetaNumber;
 import org.pentaho.di.core.row.value.ValueMetaString;
 import org.pentaho.di.core.row.value.ValueMetaTimestamp;
 import org.pentaho.hadoop.shim.api.format.IOrcOutputField;
-import org.pentaho.hadoop.shim.api.format.IPentahoOutputFormat;
 import org.pentaho.hadoop.shim.common.format.S3NCredentialUtils;
+import org.pentaho.hadoop.shim.common.format.orc.PentahoOrcRecordWriter;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -65,25 +59,16 @@ import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
-import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class HDIOrcRecordWriter implements IPentahoOutputFormat.IPentahoRecordWriter {
-  private static final Logger logger = Logger.getLogger( HDIOrcRecordWriter.class );
-  private final IValueMetaConverter valueMetaConverter = new ValueMetaConverter();
-  private VectorizedRowBatch batch;
-  private int batchRowNumber;
-  private Writer writer;
-  private RowMeta outputRowMeta = new RowMeta();
-  private RowMetaAndData outputRowMetaAndData;
-  private List<? extends IOrcOutputField> fields;
+public class HDIOrcRecordWriter extends PentahoOrcRecordWriter {
 
   public HDIOrcRecordWriter( List<? extends IOrcOutputField> fields, TypeDescription schema, String filePath,
                              Configuration conf, FileSystem fileSystem ) {
+    super(fields, schema, filePath, conf);
+
     this.fields = fields;
     final AtomicInteger fieldNumber = new AtomicInteger();  //Mutable field count
     fields.forEach( field -> setOutputMeta( fieldNumber, field ) );
@@ -102,7 +87,7 @@ public class HDIOrcRecordWriter implements IPentahoOutputFormat.IPentahoRecordWr
     }
   }
 
-  private void setOutputMeta( AtomicInteger fieldNumber, IOrcOutputField field ) {
+  protected void setOutputMeta(AtomicInteger fieldNumber, IOrcOutputField field) {
     outputRowMeta.addValueMeta( getValueMetaInterface( field.getPentahoFieldName(),
             field.getOrcType().getPdiType() ) );
     fieldNumber.getAndIncrement();
@@ -256,15 +241,6 @@ public class HDIOrcRecordWriter implements IPentahoOutputFormat.IPentahoRecordWr
     return number;
   }
 
-
-  private int getOrcDate( Date date, TimeZone timeZone ) {
-    if ( timeZone == null ) {
-      timeZone = TimeZone.getDefault();
-    }
-    LocalDate rowDate = date.toInstant().atZone( timeZone.toZoneId() ).toLocalDate();
-    return Math.toIntExact( ChronoUnit.DAYS.between( LocalDate.ofEpochDay( 0 ), rowDate ) );
-  }
-
   private void setBytesColumnVector( BytesColumnVector bytesColumnVector, String value ) {
     if ( value == null ) {
       setBytesColumnVector( bytesColumnVector, new byte[0] );
@@ -273,19 +249,7 @@ public class HDIOrcRecordWriter implements IPentahoOutputFormat.IPentahoRecordWr
     }
   }
 
-  private void setBytesColumnVector( BytesColumnVector bytesColumnVector, byte[] value ) {
-    bytesColumnVector.vector[batchRowNumber] = value;
-    bytesColumnVector.start[batchRowNumber] = 0;
-    bytesColumnVector.length[batchRowNumber] = value.length;
-  }
 
-  @Override
-  public void close() throws IOException {
-    if ( batch.size > 0 ) {
-      writer.addRowBatch( batch );
-    }
-    writer.close();
-  }
 
   private ValueMetaInterface getValueMetaInterface( String fieldName, int fieldType ) {
     switch ( fieldType ) {
