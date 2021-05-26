@@ -25,17 +25,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.orc.TypeDescription;
 import org.pentaho.hadoop.shim.HadoopShim;
-import org.pentaho.hadoop.shim.ShimConfigsLoader;
 import org.pentaho.hadoop.shim.api.cluster.NamedCluster;
-import org.pentaho.hadoop.shim.common.ConfigurationProxy;
 import org.pentaho.hadoop.shim.common.format.S3NCredentialUtils;
 import org.pentaho.hadoop.shim.common.format.orc.OrcSchemaConverter;
 import org.pentaho.hadoop.shim.common.format.orc.PentahoOrcOutputFormat;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.FileAlreadyExistsException;
-import java.util.function.BiConsumer;
 
 public class HDIOrcOutputFormat extends PentahoOrcOutputFormat {
 
@@ -43,18 +39,10 @@ public class HDIOrcOutputFormat extends PentahoOrcOutputFormat {
   private HadoopShim shim;
 
   public HDIOrcOutputFormat( NamedCluster namedCluster ) {
+    super(namedCluster);
     Thread.currentThread().setContextClassLoader( getClass().getClassLoader() );
     shim = new HadoopShim();
     pentahoConf = shim.createConfiguration( namedCluster );
-    conf = new ConfigurationProxy();
-
-    if ( namedCluster != null ) {
-      // if named cluster is not defined, no need to add cluster resource configs
-      BiConsumer<InputStream, String> consumer = conf::addResource;
-      ShimConfigsLoader.addConfigsAsResources( namedCluster, consumer );
-    } else {
-      conf.addResource( "hive-site.xml" );
-    }
   }
 
   @Override
@@ -91,9 +79,5 @@ public class HDIOrcOutputFormat extends PentahoOrcOutputFormat {
         throw new FileAlreadyExistsException( file );
       }
     }
-  }
-
-  public String generateAlias( String pvfsPath ) {
-    return null;
   }
 }

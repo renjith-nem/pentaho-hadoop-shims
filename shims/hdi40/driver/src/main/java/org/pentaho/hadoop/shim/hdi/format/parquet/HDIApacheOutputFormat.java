@@ -23,50 +23,35 @@ package org.pentaho.hadoop.shim.hdi.format.parquet;
 
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.Job;
-import org.apache.parquet.hadoop.ParquetOutputFormat;
 import org.pentaho.hadoop.shim.HadoopShim;
-import org.pentaho.hadoop.shim.ShimConfigsLoader;
 import org.pentaho.hadoop.shim.api.cluster.NamedCluster;
-import org.pentaho.hadoop.shim.common.ConfigurationProxy;
+import org.pentaho.hadoop.shim.common.format.S3NCredentialUtils;
 import org.pentaho.hadoop.shim.common.format.parquet.delegate.apache.PentahoApacheOutputFormat;
 
-import java.io.InputStream;
 import java.nio.file.FileAlreadyExistsException;
-import java.util.function.BiConsumer;
 
 public class HDIApacheOutputFormat extends PentahoApacheOutputFormat {
 
   private HadoopShim shim;
   private org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf;
-  private final NamedCluster namedCluster;
-
 
   @SuppressWarnings( "squid:S1874" )
   public HDIApacheOutputFormat( NamedCluster namedCluster ) {
-    logger.info( "We are initializing parquet output format" );
-    this.namedCluster = namedCluster;
+    super(namedCluster);
     inClassloader( () -> {
-      ConfigurationProxy conf = new ConfigurationProxy();
       shim = new HadoopShim();
       if ( namedCluster != null ) {
-        // if named cluster is not defined, no need to add cluster resource configs
-        pentahoConf = shim.createConfiguration( this.namedCluster );
-        BiConsumer<InputStream, String> consumer = conf::addResource;
-        ShimConfigsLoader.addConfigsAsResources( namedCluster, consumer );
+        pentahoConf = shim.createConfiguration( namedCluster );
       }
-
-      job = Job.getInstance( conf );
-
-      job.getConfiguration().set( ParquetOutputFormat.ENABLE_JOB_SUMMARY, "false" );
-      ParquetOutputFormat.setEnableDictionary( job, false );
     } );
   }
 
   @Override
   public void setOutputFile( String file, boolean override ) throws Exception {
     inClassloader( () -> {
-      outputFile = new Path( file );
+      S3NCredentialUtils util = new S3NCredentialUtils();
+      util.applyS3CredentialsToHadoopConfigurationIfNecessary( file, job.getConfiguration() );
+      outputFile = new Path( S3NCredentialUtils.scrubFilePathIfNecessary( file ) );
       FileSystem fs = (FileSystem) shim.getFileSystem( pentahoConf ).getDelegate();
       if ( fs.exists( outputFile ) ) {
         if ( override ) {
@@ -79,9 +64,5 @@ public class HDIApacheOutputFormat extends PentahoApacheOutputFormat {
       this.outputFile = fs.makeQualified( this.outputFile );
       this.job.getConfiguration().set( "mapreduce.output.fileoutputformat.outputdir", this.outputFile.toString() );
     } );
-  }
-
-  public String generateAlias( String pvfsPath ) {
-    return null;
   }
 }

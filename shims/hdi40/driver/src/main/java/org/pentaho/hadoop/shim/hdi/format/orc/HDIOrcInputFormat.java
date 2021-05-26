@@ -21,50 +21,23 @@
  ******************************************************************************/
 package org.pentaho.hadoop.shim.hdi.format.orc;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.orc.Reader;
-import org.apache.orc.TypeDescription;
 import org.pentaho.hadoop.shim.HadoopShim;
-import org.pentaho.hadoop.shim.ShimConfigsLoader;
 import org.pentaho.hadoop.shim.api.cluster.NamedCluster;
 import org.pentaho.hadoop.shim.api.format.IOrcInputField;
-import org.pentaho.hadoop.shim.api.format.IOrcMetaData;
-import org.pentaho.hadoop.shim.api.format.IPentahoOrcInputFormat;
-import org.pentaho.hadoop.shim.common.ConfigurationProxy;
-import org.pentaho.hadoop.shim.common.format.HadoopFormatBase;
-import org.pentaho.hadoop.shim.common.format.orc.OrcMetaDataReader;
-import org.pentaho.hadoop.shim.common.format.orc.OrcSchemaConverter;
 import org.pentaho.hadoop.shim.common.format.orc.PentahoOrcInputFormat;
 
-import java.io.InputStream;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
 public class HDIOrcInputFormat extends PentahoOrcInputFormat {
-  private static final String NOT_NULL_MSG = "filename and inputfields must not be null";
-  private final Configuration conf;
   private final org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf;
-  private String fileName;
   private final HadoopShim shim;
 
   public HDIOrcInputFormat( NamedCluster namedCluster ) {
     super(namedCluster);
     shim = new HadoopShim();
     pentahoConf = shim.createConfiguration( namedCluster );
-
-    if ( namedCluster == null ) {
-      conf = new ConfigurationProxy();
-    } else {
-      conf = inClassloader( () -> {
-        Configuration confProxy = new ConfigurationProxy();
-        confProxy.addResource( "hive-site.xml" );
-        BiConsumer<InputStream, String> consumer = confProxy::addResource;
-        ShimConfigsLoader.addConfigsAsResources( namedCluster, consumer );
-        return confProxy;
-      } );
-    }
   }
 
   @Override
@@ -80,11 +53,4 @@ public class HDIOrcInputFormat extends PentahoOrcInputFormat {
             HDIOrcRecordReader.getReader(
                     requireNonNull( fileName, NOT_NULL_MSG ), conf, shim, pentahoConf ) ) );
   }
-
-  @Override
-  public void setInputFile( String fileName ) {
-    this.fileName = fileName;
-  }
-
-
 }

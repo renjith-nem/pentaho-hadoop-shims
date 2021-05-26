@@ -30,72 +30,23 @@ import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.pentaho.hadoop.shim.HadoopShim;
 import org.pentaho.hadoop.shim.api.format.IOrcInputField;
-import org.pentaho.hadoop.shim.api.format.IOrcMetaData;
-import org.pentaho.hadoop.shim.common.format.orc.OrcMetaDataReader;
-import org.pentaho.hadoop.shim.common.format.orc.OrcSchemaConverter;
 import org.pentaho.hadoop.shim.common.format.orc.PentahoOrcRecordReader;
 
 import java.io.IOException;
 import java.nio.file.NoSuchFileException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class HDIOrcRecordReader extends PentahoOrcRecordReader {
 
   HDIOrcRecordReader( String fileName, Configuration conf,
                       List<? extends IOrcInputField> dialogInputFields, HadoopShim shim,
                       org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf ) {
-    super( fileName,  conf, dialogInputFields);
-
-    this.dialogInputFields = dialogInputFields;
-    Reader reader = getReader( fileName, conf, shim, pentahoConf );
-    try {
-      recordReader = reader.rows();
-    } catch ( IOException e ) {
-      throw new IllegalArgumentException( "Unable to get record reader for file " + fileName, e );
-    }
-    typeDescription = reader.getSchema();
-    OrcSchemaConverter orcSchemaConverter = new OrcSchemaConverter();
-    orcInputFields = orcSchemaConverter.buildInputFields( typeDescription );
-    IOrcMetaData.Reader orcMetaDataReader = new OrcMetaDataReader( reader );
-    orcMetaDataReader.read( orcInputFields );
-    batch = typeDescription.createRowBatch();
-
-    //Create a map of orc fields to meta columns
-    Map<String, Integer> orcColumnNumberMap = new HashMap<>();
-    int orcFieldNumber = 0;
-    for ( String orcFieldName : typeDescription.getFieldNames() ) {
-      orcColumnNumberMap.put( orcFieldName, orcFieldNumber++ );
-    }
-
-    //Create a map of input fields to Orc Column numbers
-    schemaToOrcSubcripts = new HashMap<>();
-    for ( IOrcInputField inputField : dialogInputFields ) {
-      if ( inputField != null ) {
-        Integer colNumber = orcColumnNumberMap.get( inputField.getFormatFieldName() );
-        if ( colNumber == null ) {
-          throw new IllegalArgumentException(
-                  "Column " + inputField.getFormatFieldName()
-                          + " does not exist in the ORC file.  Please use the getFields button" );
-        } else {
-          schemaToOrcSubcripts.put( inputField.getPentahoFieldName(), colNumber );
-        }
-      }
-    }
-
-    try {
-      setNextBatch();
-    } catch ( IOException e ) {
-      throw new IllegalArgumentException( "No rows to read in " + fileName, e );
-    }
+    super( fileName,  conf, dialogInputFields, getReader( fileName, conf, shim, pentahoConf ));
   }
 
   static Reader getReader( String fileName, Configuration conf, HadoopShim shim,
                            org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf ) {
-
     try {
-
       Path filePath = new Path( fileName );
       FileSystem fs = (FileSystem) shim.getFileSystem( pentahoConf ).getDelegate();
       if ( !fs.exists( filePath ) ) {
@@ -116,5 +67,4 @@ public class HDIOrcRecordReader extends PentahoOrcRecordReader {
       throw new IllegalArgumentException( "Unable to read data from file " + fileName, e );
     }
   }
-
 }

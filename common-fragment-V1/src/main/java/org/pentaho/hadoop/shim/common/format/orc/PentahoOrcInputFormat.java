@@ -48,7 +48,7 @@ public class PentahoOrcInputFormat extends HadoopFormatBase implements IPentahoO
   protected String fileName;
   protected List<? extends IOrcInputField> inputFields;
 
-  protected final Configuration conf;
+  protected Configuration conf;
 
   public PentahoOrcInputFormat( NamedCluster namedCluster ) {
     if ( namedCluster == null ) {

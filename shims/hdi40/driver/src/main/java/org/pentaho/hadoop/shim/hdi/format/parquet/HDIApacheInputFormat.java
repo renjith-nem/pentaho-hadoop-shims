@@ -25,14 +25,11 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapreduce.Job;
 import org.apache.parquet.hadoop.Footer;
 import org.apache.parquet.hadoop.ParquetFileReader;
-import org.apache.parquet.hadoop.ParquetInputFormat;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.MessageType;
 import org.pentaho.hadoop.shim.HadoopShim;
-import org.pentaho.hadoop.shim.ShimConfigsLoader;
 import org.pentaho.hadoop.shim.api.cluster.NamedCluster;
 import org.pentaho.hadoop.shim.api.format.IParquetInputField;
 import org.pentaho.hadoop.shim.common.ConfigurationProxy;
@@ -40,13 +37,10 @@ import org.pentaho.hadoop.shim.common.format.ReadFileFilter;
 import org.pentaho.hadoop.shim.common.format.ReadFilesFilter;
 import org.pentaho.hadoop.shim.common.format.parquet.delegate.apache.ParquetConverter;
 import org.pentaho.hadoop.shim.common.format.parquet.delegate.apache.PentahoApacheInputFormat;
-import org.pentaho.hadoop.shim.common.format.parquet.delegate.apache.PentahoParquetReadSupport;
 
-import java.io.InputStream;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 import static org.apache.hadoop.mapreduce.lib.input.FileInputFormat.setInputDirRecursive;
 import static org.apache.hadoop.mapreduce.lib.input.FileInputFormat.setInputPathFilter;
@@ -55,27 +49,15 @@ import static org.apache.hadoop.mapreduce.lib.input.FileInputFormat.setInputPath
 public class HDIApacheInputFormat extends PentahoApacheInputFormat {
   private HadoopShim shim;
   private org.pentaho.hadoop.shim.api.internal.Configuration pentahoConf;
-  private final NamedCluster namedCluster;
 
   public HDIApacheInputFormat( NamedCluster namedCluster ) {
     super(namedCluster);
-    logger.logBasic( "We are initializing parquet input format" );
-    this.namedCluster = namedCluster;
     inClassloader( () -> {
       ConfigurationProxy conf = new ConfigurationProxy();
       shim = new HadoopShim();
-      if ( this.namedCluster != null ) {
-        pentahoConf = shim.createConfiguration( this.namedCluster );
-        // if named cluster is not defined, no need to add cluster resource configs
-        BiConsumer<InputStream, String> consumer = conf::addResource;
-        ShimConfigsLoader.addConfigsAsResources( this.namedCluster, consumer );
+      if ( namedCluster != null ) {
+        pentahoConf = shim.createConfiguration( namedCluster );
       }
-      job = Job.getInstance( conf );
-
-      new ParquetInputFormat<>();
-
-      ParquetInputFormat.setReadSupportClass( job, PentahoParquetReadSupport.class );
-      ParquetInputFormat.setTaskSideMetaData( job, false );
     } );
   }
 
